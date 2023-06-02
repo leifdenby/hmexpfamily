@@ -15,6 +15,10 @@ git commit -m "Use Harmonie revision {{ base.source.revision }}"
 # to be
 ln -s {{ cwd }}/base $PERM/hm_home/{{ base.name }}__base
 
+## Create a symlink to where Harmonie will replace the output
+mkdir -p output/
+ln -s $SCRATCH/hm_home/{{ base.name }}__base {{ cwd }}/output/base
+
 # And run setup for Harmonie
 cd $PERM/hm_home/{{ base.name }}__base
 ./config-sh/Harmonie setup -r $(pwd) -h {{ base.platform }}

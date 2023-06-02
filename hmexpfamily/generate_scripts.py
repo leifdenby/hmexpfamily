@@ -16,6 +16,7 @@ SCRIPT_TEMPLATES = dict(
     ],
     variant=[
         "01__setup.sh",
+        "02__config.sh",
     ],
 )
 
@@ -53,32 +54,32 @@ def _render_file_replacements_template(target_filename, replacements):
     return template.render(**template_context)
 
 
-def _write_scripts_for_collection(
-    template, template_filename, script_kind, collection, config
+def _write_scripts_for_experiment(
+    template, template_filename, script_kind, global_config, variant_name=None
 ):
     cwd = Path.cwd()
-    template_context = dict(config)
-    template_context["cwd"] = cwd
+    template_context = dict(base=global_config["base"])
+    if variant_name is not None:
+        template_context["variant"] = dict(global_config["variants"][variant_name])
+        template_context["variant"]["name"] = variant_name
 
-    if collection == "base":
-        collection_file_replacements = config[collection].get("files", {})
-    else:
-        collection_file_replacements = config["variants"][collection].get("files", {})
+    experiment_file_replacements = template_context.get("files", {})
+
+    template_context["cwd"] = cwd
 
     template_context["file_replacements"] = {
         filename: _render_file_replacements_template(
             target_filename=filename, replacements=replacements
         )
-        for (filename, replacements) in collection_file_replacements.items()
+        for (filename, replacements) in experiment_file_replacements.items()
     }
 
     script_content = template.render(**template_context)
 
-    if collection == "base":
-        # hacky, but for the "base" we don't need to add the variant to the filename
-        script_identifier = collection
+    if variant_name is None:
+        script_identifier = "base"
     else:
-        script_identifier = f"{script_kind}__{collection}"
+        script_identifier = f"variant__{variant_name}"
     script_filename = f"{script_identifier}__{template_filename}"
 
     script_path = Path(cwd) / script_filename
@@ -97,17 +98,17 @@ def main():
             template = ENV_TEMPLATES.get_template(f"{script_kind}/{template_filename}")
 
             if script_kind == "base":
-                collections = ["base"]
+                variant_names = [None]
             else:
-                collections = list(config["variants"].keys())
+                variant_names = list(config["variants"].keys())
 
-            for collection in collections:
-                _write_scripts_for_collection(
+            for variant_name in variant_names:
+                _write_scripts_for_experiment(
                     template=template,
                     template_filename=template_filename,
                     script_kind=script_kind,
-                    collection=collection,
-                    config=config,
+                    variant_name=variant_name,
+                    global_config=config,
                 )
 
 
