@@ -3,7 +3,7 @@
 git init
 git submodule add {{ base.source.repo }} base
 cd base
-git checkout {{ base.source.revision }}
+git checkout {{ base.source.revision }} -b {{ base.name }}
 cd -
 
 # Add a commit to the experiment family repo to registered that we're using
