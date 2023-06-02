@@ -1,3 +1,4 @@
+import datetime
 import os
 import stat
 from pathlib import Path
@@ -6,6 +7,7 @@ import jinja2
 import jinja2.meta
 from loguru import logger
 
+from . import __version__
 from .config import read_config
 
 SCRIPT_TEMPLATES = dict(
@@ -28,7 +30,9 @@ ENV_TEMPLATES = jinja2.Environment(
 # TODO: rather than blindly use these we should parse the current value and
 # check that the `sed` operation works...
 DEFAULT_VALUES = {
-    "ecf/config_exp.h": dict(DOMAIN="DKCOEXP", CAERO="tegenaod", USEAERO="climaero")
+    "ecf/config_exp.h": dict(DOMAIN="DKCOEXP", CAERO="tegenaod", USEAERO="climaero"),
+    "Env_system": dict(CLEANING_LEVEL="fast"),
+    "scr/Fldextr": dict(lprintrad="F"),
 }
 
 
@@ -54,6 +58,19 @@ def _render_file_replacements_template(target_filename, replacements):
     return template.render(**template_context)
 
 
+def _render_header():
+    header_template = ENV_TEMPLATES.get_template("common_header")
+    config_yaml = read_config(raw=True)
+    config_yaml = "# ---\n# " + "\n# ".join(config_yaml.splitlines()) + "\n# ---"
+    header_content = header_template.render(
+        t_now=datetime.datetime.now(),
+        hmexpfamily_version=__version__,
+        config_yaml=config_yaml,
+    )
+
+    return header_content
+
+
 def _write_scripts_for_experiment(
     template, template_filename, script_kind, global_config, variant_name=None
 ):
@@ -63,7 +80,7 @@ def _write_scripts_for_experiment(
         template_context["variant"] = dict(global_config["variants"][variant_name])
         template_context["variant"]["name"] = variant_name
 
-    experiment_file_replacements = template_context.get("files", {})
+    experiment_file_replacements = template_context[script_kind].get("files", {})
 
     template_context["cwd"] = cwd
 
@@ -75,6 +92,9 @@ def _write_scripts_for_experiment(
     }
 
     script_content = template.render(**template_context)
+
+    header_content = _render_header()
+    script_content = "\n\n".join([header_content, script_content])
 
     if variant_name is None:
         script_identifier = "base"

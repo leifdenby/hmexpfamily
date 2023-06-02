@@ -1,0 +1,7 @@
+##
+# Generated with hmexpfamily {{ hmexpfamily_version }} {{ t_now.isoformat() }}
+# from `expfamily.yaml` with content:
+#
+{{ config_yaml }}
+#
+##
