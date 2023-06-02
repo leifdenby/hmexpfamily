@@ -10,10 +10,13 @@ from .config import read_config
 
 SCRIPT_TEMPLATES = dict(
     base=[
-        "01__base__checkout_and_setup.sh",
-        "02__base__config.sh",
-        "03__base__run_spinup.sh",
-    ]
+        "01__checkout_and_setup.sh",
+        "02__config.sh",
+        "03__run_spinup.sh",
+    ],
+    variant=[
+        "01__setup.sh",
+    ],
 )
 
 ENV_TEMPLATES = jinja2.Environment(
@@ -50,33 +53,62 @@ def _render_file_replacements_template(target_filename, replacements):
     return template.render(**template_context)
 
 
+def _write_scripts_for_collection(
+    template, template_filename, script_kind, collection, config
+):
+    cwd = Path.cwd()
+    template_context = dict(config)
+    template_context["cwd"] = cwd
+
+    if collection == "base":
+        collection_file_replacements = config[collection].get("files", {})
+    else:
+        collection_file_replacements = config["variants"][collection].get("files", {})
+
+    template_context["file_replacements"] = {
+        filename: _render_file_replacements_template(
+            target_filename=filename, replacements=replacements
+        )
+        for (filename, replacements) in collection_file_replacements.items()
+    }
+
+    script_content = template.render(**template_context)
+
+    if collection == "base":
+        # hacky, but for the "base" we don't need to add the variant to the filename
+        script_identifier = collection
+    else:
+        script_identifier = f"{script_kind}__{collection}"
+    script_filename = f"{script_identifier}__{template_filename}"
+
+    script_path = Path(cwd) / script_filename
+    with open(script_path, "w") as fh:
+        fh.write(script_content)
+
+    st = os.stat(script_path)
+    os.chmod(script_filename, st.st_mode | stat.S_IEXEC)
+    logger.info(f"Wrote script {script_filename}")
+
+
 def main():
     config = read_config()
-    cwd = Path.cwd()
-
     for script_kind, templates_filename in SCRIPT_TEMPLATES.items():
         for template_filename in templates_filename:
             template = ENV_TEMPLATES.get_template(f"{script_kind}/{template_filename}")
-            template_context = dict(config)
-            template_context["cwd"] = cwd
-            template_context["file_replacements"] = {
-                filename: _render_file_replacements_template(
-                    target_filename=filename, replacements=replacements
+
+            if script_kind == "base":
+                collections = ["base"]
+            else:
+                collections = list(config["variants"].keys())
+
+            for collection in collections:
+                _write_scripts_for_collection(
+                    template=template,
+                    template_filename=template_filename,
+                    script_kind=script_kind,
+                    collection=collection,
+                    config=config,
                 )
-                for (filename, replacements) in config["base"]["files"].items()
-            }
-
-            script_content = template.render(
-                **template_context, undefined=jinja2.StrictUndefined
-            )
-
-            script_path = Path(cwd) / template_filename
-            with open(script_path, "w") as fh:
-                fh.write(script_content)
-
-            st = os.stat(template_filename)
-            os.chmod(template_filename, st.st_mode | stat.S_IEXEC)
-            logger.info(f"Wrote script {template_filename}")
 
 
 if __name__ == "__main__":
