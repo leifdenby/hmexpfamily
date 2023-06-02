@@ -17,7 +17,7 @@ def main():
     cwd = Path.cwd()
 
     env_templates = jinja2.Environment(
-        loader=jinja2.PackageLoader("hmexpmatrix"),
+        loader=jinja2.PackageLoader("hmexpfamily"),
         autoescape=jinja2.select_autoescape(),
     )
 

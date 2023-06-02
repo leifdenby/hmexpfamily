@@ -1,6 +1,6 @@
 
 [project]
-name = "hmexpmatrix"
+name = "hmexpfamily"
 version = "0.1.0"
 description = "Utility for setup of Harmonie experiment families"
 authors = [
